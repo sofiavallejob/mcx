@@ -1,0 +1,88 @@
+# Builds mcx for Linux, macOS (Intel + Apple Silicon) and Windows,
+# then packs everything into one deken package you can download from
+# the Actions tab (Artifacts -> mcx-deken).
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PD_VERSION: "0.55-2"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pd headers
+        run: git clone --depth 1 --branch $PD_VERSION https://github.com/pure-data/pure-data.git pd
+      - name: Build
+        run: make PDINCLUDEDIR=pd/src
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-linux
+          path: "*.pd_linux"
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pd headers
+        run: git clone --depth 1 --branch $PD_VERSION https://github.com/pure-data/pure-data.git pd
+      - name: Build (universal arm64 + x86_64)
+        run: make PDINCLUDEDIR=pd/src arch="arm64 x86_64"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-macos
+          path: "*.pd_darwin"
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: make unzip mingw-w64-x86_64-gcc
+      - name: Pd for Windows (headers + pd.dll)
+        run: |
+          curl -L -o pd.zip https://msp.ucsd.edu/Software/pd-${PD_VERSION}.msw.zip
+          unzip -q pd.zip
+          mv pd-${PD_VERSION} pdwin
+      - name: Build
+        run: make PDDIR=pdwin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-windows
+          path: "*.dll"
+
+  package:
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: bins
+      - name: Assemble the mcx folder
+        run: |
+          mkdir mcx
+          cp bins/*/* mcx/
+          cp help/*.pd mcx-meta.pd README.md LICENSE mcx/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Deken package
+        run: |
+          pip install deken
+          VERSION=$(grep VERSION mcx-meta.pd | sed 's/.*VERSION \([^;]*\);/\1/')
+          deken package --version "$VERSION" mcx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcx-deken
+          path: "*.dek*"
