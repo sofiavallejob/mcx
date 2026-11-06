@@ -1,0 +1,7 @@
+#N canvas 100 100 460 220 12;
+#X text 20 20 META this is a prototype of a libdir meta file;
+#X text 20 50 NAME mcx;
+#X text 20 75 AUTHOR Sofia Vallejo Budziszewski;
+#X text 20 100 DESCRIPTION Multichannel tools for Pd vanilla: mcexpr~ mcsum~ mcnchs~ mcprint~;
+#X text 20 125 LICENSE BSD-3-Clause;
+#X text 20 150 VERSION 0.1.0;
